@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockchain - Charity on Ethereum</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"/>
+</head>
+<body>
+  <section id="invalid-metamask-banner" class="hero is-warning is-hidden">
+    <div class="hero-body">
+      <p class="title">
+        Metamask not detected
+      </p>
+      <p class="subtitle">
+        Please install metamask extension before donating.
+      </p>
+    </div>
+  </section>
+
+  <div id="donation-contents" class="container is-hidden">
+    <h1>Hello world!</h1>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js" integrity="sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    const app = {
+      hasMetaMaskInstalled: true,
+
+      ensureMetaMaskInstalled: function () {
+        this.hasMetaMaskInstalled = typeof window.ethereum !== 'undefined'
+      },
+
+      setupListeners: async function() {
+        if (!this.hasMetaMaskInstalled) {
+          $("#invalid-metamask-banner").removeClass("is-hidden")
+          return
+        }
+
+        $("#donation-contents").removeClass("is-hidden")
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        console.log(accounts)
+      },
+
+      donateButtonClicked: async function() {
+        
+      },
+    }
+
+    app.ensureMetaMaskInstalled()
+    app.setupListeners()
+  </script>
+</body>
+</html>
