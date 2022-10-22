@@ -8,7 +8,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"/>
 </head>
-<body>
+<body class="py-4">
   <section id="invalid-metamask-banner" class="hero is-warning is-hidden">
     <div class="hero-body">
       <p class="title">
@@ -21,13 +21,59 @@
   </section>
 
   <div id="donation-contents" class="container is-hidden">
-    <h1>Hello world!</h1>
+    <!-- Connected wallet banner -->
+    <section class="hero is-info">
+      <div class="hero-body">
+        <p id="account-connected" class="title"></p>
+      </div>
+    </section>
+
+    <!-- Send money to charity -->
+    <div class="card mt-5">
+      <div class="card-content">
+        <form id="donation-form">
+          <h1 class="is-size-1">Donation form</h1>
+
+          <div class="field">
+            <label class="label">Charity</label>
+            <div class="control select">
+              <select id="charity-option" name="charity"></select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Amount</label>
+            <div class="control">
+              <input id="amount-input" class="input" type="number" placeholder="Amount to donate">
+            </div>
+          </div>
+
+          <button class="button is-info">
+            Donate
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.8.0/web3.min.js" integrity="sha512-bSQ2kf76XufUYS/4XinoHLp5S4lNOyRv0/x5UJACiOMy8ueqTNwRFfUZWmWpwnczjRp9SjiF1jrXbGEim7Y0Xg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js" integrity="sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     const app = {
+      connectedAccount: null,
+
       hasMetaMaskInstalled: true,
+
+      charities: [
+        { address: "charity-one-address", name: "Charity One" },
+        { address: "charity-two-address", name: "Charity Two" },
+        { address: "charity-three-address", name: "Charity Three" },
+      ],
+
+      // TODO: Update contract address and ABI
+      contractAddress: "",
+      
+      abi: null,
 
       ensureMetaMaskInstalled: function () {
         this.hasMetaMaskInstalled = typeof window.ethereum !== 'undefined'
@@ -41,16 +87,40 @@
 
         $("#donation-contents").removeClass("is-hidden")
         const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-        console.log(accounts)
+        this.connectedAccount = accounts[0];
+
+        $("#donation-form").submit(this.onDonationSubmit)
       },
 
-      donateButtonClicked: async function() {
-        
+      setupInitialDisplay: function() {
+        $("#account-connected").text(`Connected to ${this.connectedAccount}`)
+
+        this.charities.forEach(function({ address, name }) {
+          $("#charity-option").append(`<option value="${address}">${name}</option>`)
+        })
       },
+
+      onDonationSubmit: async function(event) {
+        event.preventDefault()
+
+        const selectedCharity = $("#charity-option").val()
+        const selectedAmount = $("#amount-input").val()
+
+        // TODO: Send donation transaction
+        window.web3 = await new Web3(ethereum)
+        window.contract = await new web3.eth.Contract(this.abi, this.contractAddress)
+      }
     }
 
     app.ensureMetaMaskInstalled()
     app.setupListeners()
+      .then(function() {
+        app.setupInitialDisplay()
+      })
+      .catch(function(e) {
+        console.log("failed to setup listeners", e)
+        alert("failed to connect wallet")
+      })
   </script>
 </body>
 </html>
