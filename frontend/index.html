@@ -21,18 +21,18 @@
   </section>
 
   <div id="donation-contents" class="container is-hidden">
-    <!-- Connected wallet banner -->
-    <section class="hero is-info">
-      <div class="hero-body">
-        <p id="account-connected" class="title"></p>
-      </div>
-    </section>
-
     <!-- Send money to charity -->
     <div class="card mt-5">
       <div class="card-content">
         <form id="donation-form">
           <h1 class="is-size-1">Donation form</h1>
+
+          <div class="field">
+            <label class="label">Account</label>
+            <div class="control select">
+              <select id="account-option" name="account"></select>
+            </div>
+          </div>
 
           <div class="field">
             <label class="label">Charity</label>
@@ -51,6 +51,10 @@
           <button class="button is-info">
             Donate
           </button>
+
+          <article id="result-message" class="mt-4 message is-hidden">
+            <div class="message-body"></div>
+          </article>
         </form>
       </div>
     </div>
@@ -62,7 +66,7 @@
     const app = {
       ETHER_TO_WEI: 1000000000000000000,
 
-      connectedAccount: null,
+      connectedAccounts: [],
 
       hasMetaMaskInstalled: true,
 
@@ -213,7 +217,8 @@
 
         $("#donation-contents").removeClass("is-hidden")
         const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-        this.connectedAccount = accounts[0];
+        this.connectedAccounts = accounts;
+        console.log(accounts)
 
         $("#donation-form").submit(event => {
           event.preventDefault()
@@ -222,7 +227,9 @@
       },
 
       setupInitialDisplay: function() {
-        $("#account-connected").text(`Connected to ${this.connectedAccount}`)
+        this.connectedAccounts.forEach(account => {
+          $("#account-option").append(`<option value="${account}">${account}</option>`)
+        })
 
         this.charities.forEach(function({ address, name }) {
           $("#charity-option").append(`<option value="${address}">${name}</option>`)
@@ -231,8 +238,9 @@
 
       onDonationSubmit: async function() {
         const selectedCharity = $("#charity-option").val()
-        const selectedCharityIndex = this.charities.findIndex(({ address }) => address === selectedCharity)
         const selectedAmount = $("#amount-input").val()
+        const selectedAccount = $("#account-option").val()
+        const selectedCharityIndex = this.charities.findIndex(({ address }) => address === selectedCharity)
 
         // TODO: Send donation transaction
         window.web3 = await new Web3(ethereum)
@@ -244,16 +252,24 @@
         }
 
         this.contract.methods.deposit(selectedCharity, selectedCharityIndex)
-          .send({ from: this.connectedAccount, gasLimit: 150000, value: selectedAmount * this.ETHER_TO_WEI }, this.depositCallback)
+          .send({ from: selectedAccount, gasLimit: 150000, value: selectedAmount * this.ETHER_TO_WEI }, this.depositCallback)
       },
 
       depositCallback: function(err, response) {
+        $("#result-message")
+          .removeClass("is-hidden")
+          .removeClass("is-danger")
+
         if (err) {
+          $("#result-message").addClass("is-danger")
+          $("#result-message .message-body").text(`Error: ${err.message}`)
           console.error("An error occured", err)
           return
         }
-
-        console.log("Transaction successful", response)
+        
+        $("#result-message").addClass("is-primary")
+        $("#result-message .message-body")
+          .html(`Successfully donated to charity! Click <a target="_blank" href="https://goerli.etherscan.io/tx/${response}">this link</a> to see your transaction`)
       }
     }
 
