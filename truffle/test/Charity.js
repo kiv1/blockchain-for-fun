@@ -3,116 +3,115 @@ const assert = require('assert').strict;
 const Charitable = artifacts.require('Charity');
 
 contract('Charity', (accounts) => {
-	describe('deposit:', () => {
+	describe('validate authoriser, transfers and deposit:', () => {
 		// TODO add a test for the version of the function that does not expect a donation amount.
-		it('Should properly deposit the donation and transfer amount '
-				+ 'when the sender is specified, for a single transfer', async () => {
+		it('Should properly check all accounts are valid or signers', async () => {
 			const instance = await Charitable.deployed();
 
-			// const addresses = await instance.getAddresses.call();
-			// console.log('addresses: ' + JSON.stringify(addresses, null, 4));
+			let isAdmin = await instance.isAdmin({
+				from: accounts[0],
+			});
+
+			let isAdmin1 = await instance.isAdmin({
+				from: accounts[1],
+			});
+
+			let isAdmin2 = await instance.isAdmin({
+				from: accounts[2],
+			});
+			
+			let isAdmin3 = await instance.isAdmin({
+				from: accounts[3],
+			});
+
+			let isAdmin4 = await instance.isAdmin({
+				from: accounts[4],
+			});
+
+			assert.equal(isAdmin, true);
+			assert.equal(isAdmin1, true);
+			assert.equal(isAdmin2, true);
+			assert.equal(isAdmin3, true);
+			assert.equal(isAdmin4, false);
+
+		})
+
+		it('Should properly check if the value is deposit and sent after the approval', async () => {
+			const instance = await Charitable.deployed();
 
 			const balances ={
 				before: {
 					contract: await web3.eth.getBalance(instance.address),
-					account0: await web3.eth.getBalance(accounts[0]),
-					account1: await web3.eth.getBalance(accounts[1]),
 					account5: await web3.eth.getBalance(accounts[5]),
 				},
 				after: {
 					contract: null,
-					account0: null,
-					account1: null,
 					account5: null
 				}
 			};
 
-			const destinationAddress = accounts[1];
-			const charityIndex = 0;
 			const transferAmount = Number(web3.utils.toWei('1', 'ether')) / 2;
-			const donationAmount = transferAmount / 2;
-			await instance.deposit(destinationAddress, charityIndex, donationAmount.toString(), {
+			await instance.deposit( {
 				from: accounts[5],
 				value: transferAmount
 			});
 
+			const toTransfer = (Number(web3.utils.toWei('1', 'ether'))/1000000000) / 2;
+			await instance.requestAction( accounts[5], toTransfer, {
+				from: accounts[1]
+			});
+
+			await instance.approveAction({
+				from: accounts[0]
+			});
+			await instance.approveAction({
+				from: accounts[2]
+			});
+			await instance.approveAction({
+				from: accounts[3]
+			});
+
+			balances.after.account5 = await web3.eth.getBalance(accounts[5]);
 			balances.after.contract = await web3.eth.getBalance(instance.address);
-			balances.after.account0 = await web3.eth.getBalance(accounts[0]);
-			balances.after.account1 = await web3.eth.getBalance(accounts[1]);
 
 			assert.equal(balances.before.contract, balances.after.contract);
-			assert.equal(balances.before.account0, balances.after.account0);
 			assert.notEqual(balances.before.account5, balances.after.account5);
-			assert.notEqual(balances.before.account1, balances.after.account1);
-			assert.equal(Number(balances.after.account1), Number(balances.before.account1) + donationAmount);
+		})
 
-			const totalDonationsAmount = await instance.getTotalDonationsAmount();
-			assert.equal(Number(totalDonationsAmount), donationAmount)
-
-			// const highestDonationResults = await instance.getHighestDonation();
-			// const highestDonation = highestDonationResults[0];
-			// const highestDonor = highestDonationResults[1];
-
-			// assert.equal(Number(highestDonation), donationAmount);
-			// assert.equal(highestDonor, accounts[5]);
-		});
-
-		it('Should properly deposit the donation and transfer amount '
-				+ 'when the sender is specified, for multiple transfers.', async () => {
+		it('Should properly reset all approvers', async () => {
 			const instance = await Charitable.deployed();
 
 			const balances ={
 				before: {
 					contract: await web3.eth.getBalance(instance.address),
-					account0: await web3.eth.getBalance(accounts[0]),
-					account1: await web3.eth.getBalance(accounts[1])
 				},
 				after: {
 					contract: null,
-					account0: null,
-					account1: null
 				}
 			};
 
-			const destinationAddress = accounts[1];
-			const charityIndex = 1;
-			const transferAmount = Number(web3.utils.toWei('1', 'ether'));
-			const donationAmount1 = transferAmount / 3;
-			const donationAmount2 = transferAmount / 4;
-
-			await instance.deposit(destinationAddress, charityIndex, donationAmount1.toString(), {
+			const transferAmount = Number(web3.utils.toWei('1', 'ether')) / 2;
+			await instance.deposit( {
+				from: accounts[5],
 				value: transferAmount
 			});
 
-			await instance.deposit(destinationAddress, charityIndex, donationAmount2.toString(), {
-				value: transferAmount
+			const toTransfer = (Number(web3.utils.toWei('1', 'ether'))/1000000000) / 2;
+			await instance.requestAction( accounts[5], toTransfer, {
+				from: accounts[1]
+			});
+
+			await instance.approveAction({
+				from: accounts[0]
+			});
+
+			await instance.resetApprovers({
+				from: accounts[0]
 			});
 
 			balances.after.contract = await web3.eth.getBalance(instance.address);
-			balances.after.account0 = await web3.eth.getBalance(accounts[0]);
-			balances.after.account1 = await web3.eth.getBalance(accounts[1]);
 
-			assert.equal(balances.before.contract, balances.after.contract);
-			assert.notEqual(balances.before.account0, balances.after.account0);
-			assert.notEqual(balances.before.account1, balances.after.account1);
-			assert.equal(Number(balances.after.account1), Number(balances.before.account1) + transferAmount * 2 -  (donationAmount1 + donationAmount2));
-
-			const totalDonationsAmount = await instance.getTotalDonationsAmount();
-			assert.equal(Number(totalDonationsAmount), 833333333333333200)
-
-			const highestDonationResults = await instance.getHighestDonation();
-			const highestDonation = highestDonationResults[0];
-			const highestDonor = highestDonationResults[1];
-
-			assert.equal(Number(highestDonation), 333333333333333300);
-			assert.equal(highestDonor, accounts[0]);
-
-			await instance.destroy.call();
-			
-			const highestDonationResults2 = await instance.getHighestDonation.call();
-			
-			console.log('highestDonation: ' + highestDonationResults2[0]);
-			console.log('highestDonor: ' + highestDonationResults2[1]);
+			assert.notEqual(balances.before.contract, balances.after.contract);
 		})
 	});
 });

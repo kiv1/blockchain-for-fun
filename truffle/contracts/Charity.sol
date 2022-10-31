@@ -4,36 +4,54 @@ pragma solidity >=0.5.8 <0.9.0;
 /// whenever a user wants to make a transfer of funds to another user.
 contract Charity {
     address payable owner;
-    address payable[] charityAddresses;
-    uint256 totalDonationsAmount;
-    uint256 highestDonation;
-    address payable highestDonor;
+    address payable target;
+    uint amount;
+    address payable[] addresses;
+    mapping(address=>bool) signers;
+    mapping(address=>bool) approvers;
 
-    /// @param addresses_ The list of charity addresses to store in order to send donations to.
+
+    /// @param addresses_ The list of addresses tat is valid to do actions.
     constructor(address payable[] memory addresses_) public {
         owner = payable(msg.sender);
-        charityAddresses = addresses_;
-        totalDonationsAmount = 0;
-        highestDonation = 0;
+        addresses = addresses_;
+        target = payable(address(this));
+        amount = 0;
+        addresses.push(owner);
+        for(uint i=0; i<addresses.length; i++){
+            signers[addresses[i]] = true;
+        }
     }
 
     /// Restricts the access only to the user who deployed the contract.
     modifier restrictToOwner() {
-        require(msg.sender == owner, 'Method available only to the to the user that deployed the contract');
+        require(msg.sender == owner, 'Method available only to the user that deployed the contract');
         _;
     }
 
-    /// Validates that the sender originated the transfer is different than the target destination.
-    modifier validateDestination(address payable destinationAddress) {
-        require(msg.sender != destinationAddress, 'Sender and recipient cannot be the same.');
+
+    /// Restricts the access only to the user who deployed the contract or authorised signers.
+    modifier restrictToAuthoriser() {
+        require(signers[msg.sender]==true , 'Method available only to the user that deployed the contract or the authorsed signer');
         _;
     }
 
-    //// Validates that the charity index number provided is a valid one.
+    modifier isValid(address sender) {
+        require(payable(sender).send(0) , 'Method available only to a valid payable address');
+        _;
+    }
+
+    modifier isAuthoriseAllowed() {
+        require(target!=payable(address(this)) && amount != 0, 'Method available only when target and amount has been set');
+        _;
+    }
+
+    /// Validates that the donated amount is within acceptable limits.
     ///
-    /// @param charityIndex The target charity index to validate. Indexes start from 0 and increment by 1.
-    modifier validateCharity(uint256 charityIndex) {
-        require(charityIndex <= charityAddresses.length - 1, 'Invalid charity index.');
+    /// @param donationAmount The target donation amount.
+    modifier validateDonationAmount(uint256 donationAmount) {
+        require((donationAmount*1000000000) <= address(this).balance && (donationAmount*1000000000)>0,
+            'Vault does not conatin enough for donation');
         _;
     }
 
@@ -43,87 +61,95 @@ contract Charity {
         _;
     }
 
-    /// Validates that the donated amount is within acceptable limits.
-    ///
-    /// @param donationAmount The target donation amount.
-    /// @dev donated amount >= 1% of the total transferred amount and <= 50% of the total transferred amount.
-    modifier validateDonationAmount(uint256 donationAmount) {
-        require(donationAmount >= msg.value / 100 && donationAmount <= msg.value / 2,
-            'Donation amount has to be from 1% to 50% of the total transferred amount');
-        _;
-    }
-
     /// Transmits the address of the donor and the amount donated.
     event Donation(
         address indexed _donor,
         uint256 _value
     );
 
-    /// Redirects 10% of the total transferred funds to the target charity and transfers the rest to the target address.
-    /// Whenever a transfer of funds is complete, it emits the event `Donation`.
-    ///
-    /// @param destinationAddress The target address to send fund to.
-    /// @param charityIndex The target index of the charity to send the 10% of the funds.
-    function deposit(address payable destinationAddress, uint256 charityIndex) public validateDestination(destinationAddress)
-    validateTransferAmount() validateCharity(charityIndex) payable {
-        uint256 donationAmount = msg.value / 10;
-        uint256 actualDeposit = msg.value - donationAmount;
-
-        charityAddresses[charityIndex].transfer(donationAmount);
-        destinationAddress.transfer(actualDeposit);
-
+    function deposit() public 
+    validateTransferAmount() payable {
+        uint256 donationAmount = msg.value;
         emit Donation(msg.sender, donationAmount);
+    }
 
-        totalDonationsAmount += donationAmount;
+    function requestAction(address destinationAddress, uint256 donationAmount) public 
+    restrictToAuthoriser()
+    isValid(destinationAddress)
+    validateDonationAmount(donationAmount) {
+        target = payable(destinationAddress);
+        amount = donationAmount;
+        for(uint i=0; i<addresses.length; i++){
+            approvers[addresses[i]] = false;
+        }
+        approvers[msg.sender] = true;
+    }
 
-        if (donationAmount > highestDonation) {
-            highestDonation = donationAmount;
-            highestDonor = payable(msg.sender);
+    function getAllSigners() public restrictToAuthoriser() view returns(uint) {
+        uint count = 0;
+        for(uint i=0; i<addresses.length; i++){
+            if (signers[addresses[i]] == true){
+                count+=1;
+            }
+        }
+
+        return count;
+    }
+
+    function getAllApprovers() public restrictToAuthoriser() view returns(uint) {
+        uint count = 0;
+        for(uint i=0; i<addresses.length; i++){
+            if (approvers[addresses[i]] == true){
+                count+=1;
+            }
+        }
+
+        return count;
+    }
+
+    function getTarget() public restrictToAuthoriser() view returns(address) {
+        return target;
+    }
+
+    function getAmount() public restrictToAuthoriser() view returns(uint) {
+        return amount;
+    }
+
+    function approveAction() public 
+    restrictToAuthoriser()
+    isAuthoriseAllowed() {
+        approvers[msg.sender] = true;
+        uint count = 0;
+        for(uint i=0; i<addresses.length; i++){
+            if (approvers[addresses[i]] == true) {
+                count+=1;
+            }
+        }
+        if (count == (addresses.length)){
+            for(uint i=0; i<addresses.length; i++){
+                approvers[addresses[i]] = false;
+            }
+            target.transfer(amount*1000000000);
+            target = payable(address(this));
+            amount = 0;
         }
     }
 
-    /// Redirects the specified amount to the target charity and transfers the rest to the target address.
-    /// Whenever a transfer of funds is complete, it emits the event `Donation`.
-    ///
-    /// @param destinationAddress The target address to send fund to.
-    /// @param charityIndex The target index of the charity to send the specified amount.
-    /// @param donationAmount The amount to send to the target charity.
-    function deposit(address payable destinationAddress, uint256 charityIndex, uint256 donationAmount) public
-    validateDestination(destinationAddress) validateTransferAmount() validateCharity(charityIndex)
-    validateDonationAmount(donationAmount) payable {
-        uint256 actualDeposit = msg.value - donationAmount;
-
-        charityAddresses[charityIndex].transfer(donationAmount);
-        destinationAddress.transfer(actualDeposit);
-
-        emit Donation(msg.sender, donationAmount);
-
-        totalDonationsAmount += donationAmount;
-
-        if (donationAmount > highestDonation) {
-            highestDonation = donationAmount;
-            highestDonor = payable(msg.sender);
+    function resetApprovers() public restrictToAuthoriser() {
+        target = payable(address(this));
+        amount = 0;
+        for(uint i=0; i<addresses.length; i++){
+            approvers[addresses[i]] = false;
         }
     }
 
-    /// Returns all the available charity addresses.
-    /// @return charityAddresses
-    function getAddresses() public view returns (address payable[] memory) {
-        return charityAddresses;
+    function isAdmin() public view returns(bool) {
+        if (signers[msg.sender] == true){
+            return true;
+        }
+        return false;
     }
-
-    /// Returns the total amount raised by all donations (in wei) towards any charity.
-    /// @return totalDonationsAmount
-    function getTotalDonationsAmount() public view returns (uint256) {
-        return totalDonationsAmount;
-    }
-
-    /// Returns the address that made the highest donation, along with the amount donated.
-    /// @return (highestDonation, highestDonor)
-    function getHighestDonation() public view restrictToOwner() returns (uint256, address payable)  {
-        return (highestDonation, highestDonor);
-    }
-
+    
     // Destroys the contract and renders it unusable.
     function destroy() public restrictToOwner() {
         selfdestruct(owner);
