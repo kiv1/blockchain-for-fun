@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blockchain - Charity on Ethereum</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"/>
+</head>
+<body class="py-4">
+  <section id="invalid-metamask-banner" class="hero is-warning is-hidden">
+    <div class="hero-body">
+      <p class="title">
+        Metamask not detected
+      </p>
+      <p class="subtitle">
+        Please install metamask extension before donating.
+      </p>
+    </div>
+  </section>
+
+  <section id="not-logged-in-banner" class="hero is-danger">
+    <div class="hero-body">
+      <p class="title">
+        Not logged in
+      </p>
+      <p class="subtitle">
+        Please login to metamask before continuing.
+      </p>
+    </div>
+  </section>
+
+  <div id="transfer-contents" class="container is-hidden">
+    <!-- Send money to charity -->
+    <div class="card mt-5">
+      <div class="card-content">
+        <form id="transfer-form">
+          <h1 class="is-size-1">Transfer request</h1>
+
+          <div class="field">
+            <label class="label">Account</label>
+            <div class="control select">
+              <select id="account-option" name="account"></select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Receving account</label>
+            <div class="control">
+              <input id="receiving-account-input" class="input" type="text" placeholder="Receiver address">
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Amount</label>
+            <div class="control">
+              <input id="amount-input" class="input" type="number" step=".001" placeholder="Amount to transfer">
+            </div>
+          </div>
+
+          <button class="button is-info">
+            Transfer
+          </button>
+
+          <article id="result-message" class="mt-4 message is-hidden">
+            <div class="message-body"></div>
+          </article>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.8.0/web3.min.js" integrity="sha512-bSQ2kf76XufUYS/4XinoHLp5S4lNOyRv0/x5UJACiOMy8ueqTNwRFfUZWmWpwnczjRp9SjiF1jrXbGEim7Y0Xg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js" integrity="sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    const app = {
+      ETHER_TO_GWEI: 1000000000,
+
+      hasMetaMaskInstalled: true,
+
+      connectedAccounts: [],
+
+      contractAddress: "0x705e484a86d68c566f95EAFbd86aD7Dd8b0934a1",
+      
+      abi: [
+        {
+          "inputs": [
+            {
+              "internalType": "address payable[]",
+              "name": "addresses_",
+              "type": "address[]"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "_donor",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "_value",
+              "type": "uint256"
+            }
+          ],
+          "name": "Donation",
+          "type": "event"
+        },
+        {
+          "inputs": [],
+          "name": "deposit",
+          "outputs": [],
+          "stateMutability": "payable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "destinationAddress",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "donationAmount",
+              "type": "uint256"
+            }
+          ],
+          "name": "requestAction",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getAllSigners",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getAllApprovers",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getTarget",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getAmount",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "hasApproveAction",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "approveAction",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "resetApprovers",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "isAdmin",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "destroy",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        }
+      ],
+
+      contract: null,
+
+      ensureMetaMaskInstalled: function () {
+        this.hasMetaMaskInstalled = typeof window.ethereum !== 'undefined'
+      },
+
+      setupListeners: async function() {
+        if (!this.hasMetaMaskInstalled) {
+          $("#invalid-metamask-banner").removeClass("is-hidden")
+          return
+        }
+
+        window.web3 = await new Web3(ethereum)
+        this.contract = await new web3.eth.Contract(this.abi, this.contractAddress)
+
+        $("#transfer-contents").removeClass("is-hidden")
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        this.connectedAccounts = accounts;
+
+        this.connectedAccounts.forEach(account => {
+          $("#account-option").append(`<option value="${account}">${account}</option>`)
+        })
+
+        $("#transfer-form").submit(event => {
+          event.preventDefault()
+          this.onTransferRequested()
+        })
+      },
+
+      setupInitialDisplay: async function() {
+        if (await ethereum.isConnected())
+          $("#not-logged-in-banner").addClass("is-hidden")
+      },
+
+      onTransferRequested: async function() {
+        const receivingAddress = $("#receiving-account-input").val()
+        const transferAmount = $("#amount-input").val()
+        const selectedAccount = $("#account-option").val()
+
+        this.contract.methods.requestAction(receivingAddress, transferAmount * this.ETHER_TO_GWEI)
+          .send({ from: selectedAccount, gasLimit: 150000 }, this.transferCallback)
+      },
+
+      transferCallback: function(err, response) {
+        $("#result-message")
+          .removeClass("is-hidden")
+          .removeClass("is-danger")
+
+        if (err) {
+          $("#result-message").addClass("is-danger")
+          $("#result-message .message-body").text(`Error: ${err.message}`)
+          console.error("An error occured", err)
+          return
+        }
+        
+        $("#result-message").addClass("is-primary")
+        $("#result-message .message-body")
+          .html(`Successfully donated to charity! Click <a target="_blank" href="https://goerli.etherscan.io/tx/${response}">this link</a> to see your transaction`)
+      }
+    }
+
+    app.ensureMetaMaskInstalled()
+    app.setupListeners()
+      .then(function() {
+        app.setupInitialDisplay()
+      })
+      .catch(function(e) {
+        console.log("failed to setup listeners", e)
+        alert("failed to connect wallet")
+      })
+  </script>
+</body>
+</html>
