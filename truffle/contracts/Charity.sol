@@ -21,6 +21,9 @@ contract Charity {
         for(uint i=0; i<addresses.length; i++){
             signers[addresses[i]] = true;
         }
+        for(uint i=0; i<addresses.length; i++){
+            approvers[addresses[i]] = false;
+        }
     }
 
     /// Restricts the access only to the user who deployed the contract.
@@ -43,6 +46,11 @@ contract Charity {
 
     modifier isAuthoriseAllowed() {
         require(target!=payable(address(this)) && amount != 0, 'Method available only when target and amount has been set');
+        _;
+    }
+
+    modifier hasApproved() {
+        require(approvers[msg.sender]!=true, 'Method available only when user has not approved');
         _;
     }
 
@@ -115,8 +123,15 @@ contract Charity {
         return amount;
     }
 
+    function hasApproveAction() public
+    restrictToAuthoriser() view returns(bool)
+    {
+        return approvers[msg.sender];
+    }
+    
     function approveAction() public 
     restrictToAuthoriser()
+    hasApproved()
     isAuthoriseAllowed() {
         approvers[msg.sender] = true;
         uint count = 0;
