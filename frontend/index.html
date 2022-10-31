@@ -35,13 +35,6 @@
           </div>
 
           <div class="field">
-            <label class="label">Charity</label>
-            <div class="control select">
-              <select id="charity-option" name="charity"></select>
-            </div>
-          </div>
-
-          <div class="field">
             <label class="label">Amount</label>
             <div class="control">
               <input id="amount-input" class="input" type="number" step=".001" placeholder="Amount to donate">
@@ -70,13 +63,7 @@
 
       hasMetaMaskInstalled: true,
 
-      charities: [
-        { address: "0x9FA4912Ce7b2Dbe22a2200FA6cd67BeAAc33b404", name: "Charity One" },
-        { address: "0x42bB850EDA1Ef3677a813Af68A863E843406A926", name: "Charity Two" },
-        { address: "0x2dfbff8A0F38F5701BaA84B5Dda4eDfb2a062327", name: "Charity Three" },
-      ],
-
-      contractAddress: "0xbA60a75D6491D6922031E2702514d582a4082Ce0",
+      contractAddress: "0x705e484a86d68c566f95EAFbd86aD7Dd8b0934a1",
       
       abi: [
         {
@@ -110,16 +97,18 @@
           "type": "event"
         },
         {
+          "inputs": [],
+          "name": "deposit",
+          "outputs": [],
+          "stateMutability": "payable",
+          "type": "function"
+        },
+        {
           "inputs": [
             {
-              "internalType": "address payable",
+              "internalType": "address",
               "name": "destinationAddress",
               "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "charityIndex",
-              "type": "uint256"
             },
             {
               "internalType": "uint256",
@@ -127,45 +116,14 @@
               "type": "uint256"
             }
           ],
-          "name": "deposit",
+          "name": "requestAction",
           "outputs": [],
-          "stateMutability": "payable",
-          "type": "function"
-        },
-        {
-          "inputs": [
-            {
-              "internalType": "address payable",
-              "name": "destinationAddress",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "charityIndex",
-              "type": "uint256"
-            }
-          ],
-          "name": "deposit",
-          "outputs": [],
-          "stateMutability": "payable",
+          "stateMutability": "nonpayable",
           "type": "function"
         },
         {
           "inputs": [],
-          "name": "getAddresses",
-          "outputs": [
-            {
-              "internalType": "address payable[]",
-              "name": "",
-              "type": "address[]"
-            }
-          ],
-          "stateMutability": "view",
-          "type": "function"
-        },
-        {
-          "inputs": [],
-          "name": "getTotalDonationsAmount",
+          "name": "getAllSigners",
           "outputs": [
             {
               "internalType": "uint256",
@@ -178,17 +136,78 @@
         },
         {
           "inputs": [],
-          "name": "getHighestDonation",
+          "name": "getAllApprovers",
           "outputs": [
             {
               "internalType": "uint256",
               "name": "",
               "type": "uint256"
-            },
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getTarget",
+          "outputs": [
             {
-              "internalType": "address payable",
+              "internalType": "address",
               "name": "",
               "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getAmount",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "hasApproveAction",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "approveAction",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "resetApprovers",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "isAdmin",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
             }
           ],
           "stateMutability": "view",
@@ -230,19 +249,12 @@
         this.connectedAccounts.forEach(account => {
           $("#account-option").append(`<option value="${account}">${account}</option>`)
         })
-
-        this.charities.forEach(function({ address, name }) {
-          $("#charity-option").append(`<option value="${address}">${name}</option>`)
-        })
       },
 
       onDonationSubmit: async function() {
-        const selectedCharity = $("#charity-option").val()
         const selectedAmount = $("#amount-input").val()
         const selectedAccount = $("#account-option").val()
-        const selectedCharityIndex = this.charities.findIndex(({ address }) => address === selectedCharity)
 
-        // TODO: Send donation transaction
         window.web3 = await new Web3(ethereum)
         this.contract = await new web3.eth.Contract(this.abi, this.contractAddress)
 
@@ -251,7 +263,7 @@
           return
         }
 
-        this.contract.methods.deposit(selectedCharity, selectedCharityIndex)
+        this.contract.methods.deposit()
           .send({ from: selectedAccount, gasLimit: 150000, value: selectedAmount * this.ETHER_TO_WEI }, this.depositCallback)
       },
 
