@@ -323,6 +323,11 @@
           event.preventDefault()
           this.onCancelApproval()
         })
+
+        $("#btn-approval").click(event => {
+          event.preventDefault()
+          this.onApprove()
+        })
       },
 
       setupInitialDisplay: async function() {
@@ -383,10 +388,10 @@
       onCancelApproval: async function() {
         const selectedAccount = $("#approval-account-option").val()
         this.contract.methods.resetApprovers()
-          .send({ from: selectedAccount, gasLimit: 150000 }, this.cancelCallback)
+          .send({ from: selectedAccount, gasLimit: 150000 }, this.approvalCallback)
       },
 
-      cancelCallback: function(err, response) {
+      approvalCallback: function(err, response) {
         $("#approval-result-message")
           .removeClass("is-hidden")
           .removeClass("is-danger")
@@ -401,6 +406,12 @@
         $("#approval-result-message").addClass("is-primary")
         $("#approval-result-message .message-body")
           .html(`Successfully cancelled approval! Click <a target="_blank" href="https://goerli.etherscan.io/tx/${response}">this link</a> to see your transaction`)
+      },
+
+      onApprove: async function() {
+        const selectedAccount = $("#approval-account-option").val()
+        this.contract.methods.approveAction()
+          .send({ from: selectedAccount, gasLimit: 150000 }, this.approvalCallback)
       }
     }
 
