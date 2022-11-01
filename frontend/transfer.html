@@ -31,8 +31,59 @@
     </div>
   </section>
 
+  <section id="unauthorized-banner" class="hero is-danger is-hidden">
+    <div class="hero-body">
+      <p class="title">
+        Unauthorized
+      </p>
+      <p class="subtitle">
+        You are not authorized to access this page.
+      </p>
+    </div>
+  </section>
+
+  <div id="approval-contents" class="container is-hidden">
+    <div class="card mt-5">
+      <div class="card-content">
+        <h1 class="is-size-1">Approval</h1>
+
+        <div class="field">
+          <label class="label">Account</label>
+          <div class="control select">
+            <select id="approval-account-option" name="account"></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">Receving account</label>
+          <div class="control">
+            <input id="receiving-account" class="input" type="text" disabled>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="label">Transfer amount</label>
+          <div class="control">
+            <input id="transfer-amount" class="input" type="text" disabled>
+          </div>
+        </div>
+
+        <button class="button is-info" id="btn-approval">
+          Approve (<span id="approval-count"></span>)
+        </button>
+
+        <button class="button is-danger" id="btn-cancel">
+          Cancel
+        </button>
+
+        <article id="approval-result-message" class="mt-4 message is-hidden">
+          <div class="message-body"></div>
+        </article>
+      </div>
+    </div>
+  </div>
+
   <div id="transfer-contents" class="container is-hidden">
-    <!-- Send money to charity -->
     <div class="card mt-5">
       <div class="card-content">
         <form id="transfer-form">
@@ -255,23 +306,52 @@
         window.web3 = await new Web3(ethereum)
         this.contract = await new web3.eth.Contract(this.abi, this.contractAddress)
 
-        $("#transfer-contents").removeClass("is-hidden")
         const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
         this.connectedAccounts = accounts;
 
         this.connectedAccounts.forEach(account => {
           $("#account-option").append(`<option value="${account}">${account}</option>`)
+          $("#approval-account-option").append(`<option value="${account}">${account}</option>`)
         })
 
         $("#transfer-form").submit(event => {
           event.preventDefault()
           this.onTransferRequested()
         })
+
+        $("#btn-cancel").click(event => {
+          event.preventDefault()
+          this.onCancelApproval()
+        })
       },
 
       setupInitialDisplay: async function() {
         if (await ethereum.isConnected())
           $("#not-logged-in-banner").addClass("is-hidden")
+
+        const isAdmin = await this.contract.methods.isAdmin().call({ from: this.connectedAccounts[0] })
+        if (!isAdmin) {
+          $("#unauthorized-banner").removeClass("is-hidden")
+          return
+        }
+        
+        const [approveCount, totalSigners, receivingAccount, transferAmount, isActionTaken] = await Promise.all([
+          this.contract.methods.getAllApprovers().call({ from: this.connectedAccounts[0] }),
+          this.contract.methods.getAllSigners().call({ from: this.connectedAccounts[0] }),
+          this.contract.methods.getTarget().call({ from: this.connectedAccounts[0] }),
+          this.contract.methods.getAmount().call({ from: this.connectedAccounts[0] }),
+          this.contract.methods.hasApproveAction().call({ from: this.connectedAccounts[0] }),
+        ])
+
+        if (receivingAccount !== this.contractAddress)
+          $("#approval-contents").removeClass("is-hidden")
+        else
+          $("#transfer-contents").removeClass("is-hidden")
+
+        $("#receiving-account").val(receivingAccount)
+        $("#transfer-amount").val(transferAmount / this.ETHER_TO_GWEI)
+        $("#approval-count").text(`${approveCount} / ${totalSigners}`)
+        $("#btn-approval").attr("disabled", isActionTaken)
       },
 
       onTransferRequested: async function() {
@@ -298,6 +378,29 @@
         $("#result-message").addClass("is-primary")
         $("#result-message .message-body")
           .html(`Successfully donated to charity! Click <a target="_blank" href="https://goerli.etherscan.io/tx/${response}">this link</a> to see your transaction`)
+      },
+
+      onCancelApproval: async function() {
+        const selectedAccount = $("#approval-account-option").val()
+        this.contract.methods.resetApprovers()
+          .send({ from: selectedAccount, gasLimit: 150000 }, this.cancelCallback)
+      },
+
+      cancelCallback: function(err, response) {
+        $("#approval-result-message")
+          .removeClass("is-hidden")
+          .removeClass("is-danger")
+
+        if (err) {
+          $("#approval-result-message").addClass("is-danger")
+          $("#approval-result-message .message-body").text(`Error: ${err.message}`)
+          console.error("An error occured", err)
+          return
+        }
+
+        $("#approval-result-message").addClass("is-primary")
+        $("#approval-result-message .message-body")
+          .html(`Successfully cancelled approval! Click <a target="_blank" href="https://goerli.etherscan.io/tx/${response}">this link</a> to see your transaction`)
       }
     }
 
