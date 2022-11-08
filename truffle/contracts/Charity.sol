@@ -26,13 +26,6 @@ contract Charity {
         }
     }
 
-    /// Restricts the access only to the user who deployed the contract.
-    modifier restrictToOwner() {
-        require(msg.sender == owner, 'Method available only to the user that deployed the contract');
-        _;
-    }
-
-
     /// Restricts the access only to the user who deployed the contract or authorised signers.
     modifier restrictToAuthoriser() {
         require(signers[msg.sender]==true , 'Method available only to the user that deployed the contract or the authorsed signer');
@@ -164,9 +157,5 @@ contract Charity {
         }
         return false;
     }
-    
-    // Destroys the contract and renders it unusable.
-    function destroy() public restrictToOwner() {
-        selfdestruct(owner);
-    }
+
 }
